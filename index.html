@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>두더지 잡기 (HTML5)</title>
+  <style>
+    :root{
+      --bg:#121621;
+      --hole:#1e2332;
+      --mole:#d25f5f;
+      --mole-shadow:#783737;
+      --white:#ffffff;
+      --red:#e66e6e;
+      --hud:#eaeaf0;
+      --accent:#ffd974;
+    }
+    html,body{
+      margin:0;
+      height:100%;
+      background:linear-gradient(180deg,#0f1320 0%, #121621 60%, #0f1320 100%);
+      color:var(--hud);
+      font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
+    }
+    .wrap{
+      min-height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      box-sizing:border-box;
+    }
+    canvas{
+      width: min(640px, 92vw);
+      height: auto;
+      aspect-ratio: 640/720;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.05);
+      background: var(--bg);
+      display:block;
+    }
+    .hint{
+      position:fixed;
+      bottom:14px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:12px;
+      opacity:.75;
+      user-select:none;
+      text-align:center;
+      line-height:1.5;
+    }
+    a{ color:#9ad0ff; text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game" width="640" height="720"></canvas>
+  </div>
+  <div class="hint">
+    스페이스바 시작 · 마우스로 두더지를 클릭 · 게임오버에서 R로 재시작
+  </div>
+
+  <script>
+    // ====== 설정 ======
+    const W = 640, H = 720;
+    const BG = "#121621";
+    const HOLE = "#1e2332";
+    const MOLE = "#d25f5f";
+    const MOLE_SHADOW = "#783737";
+    const WHITE = "#ffffff";
+    const RED = "#e66e6e";
+    const HUD = "#eaeaf0";
+    const ACCENT = "#ffd974";
+
+    const STATE_MENU = 0, STATE_PLAY = 1, STATE_GAMEOVER = 2;
+
+    // ====== 유틸 ======
+    const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+    const rand = (a,b)=>Math.random()*(b-a)+a;
+    const TAU = Math.PI*2;
+
+    // ====== 캔버스/컨텍스트 ======
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // ====== 폰트 ======
+    const font = (px=28)=>`${px}px "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif`;
+
+    function drawTextCenter(text, size, color, cx, cy){
+      ctx.font = font(size);
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, cx, cy);
+    }
+
+    // ====== 파티클 ======
+    class Particle {
+      constructor(x,y,color){
+        const ang = rand(0, TAU);
+        const spd = rand(2.0, 6.0);
+        this.x = x; this.y = y;
+        this.vx = Math.cos(ang)*spd;
+        this.vy = Math.sin(ang)*spd;
+        this.life = Math.floor(rand(15, 28));
+        this.color = color;
+        this.size = Math.floor(rand(2,4));
+      }
+      update(){
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.96;
+        this.vy *= 0.96;
+        this.life -= 1;
+      }
+      draw(ctx){
+        if(this.life <= 0) return;
+        const r = Math.max(1, Math.floor(this.size * this.life/28));
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x|0, this.y|0, r, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // ====== 두더지 ======
+    class Mole {
+      constructor(cx, cy){
+        this.cx = cx; this.cy = cy;
+        this.baseR = 36;
+        this.state = "hidden";
+        this.t = 0;
+        this.visibleDur = 45;
+        this.appearDur = 12;
+        this.disappearDur = 10;
+        this.wasHit = false;
+      }
+      spawn(visibleFrames){
+        this.state = "appearing";
+        this.t = 0;
+        this.wasHit = false;
+        this.visibleDur = Math.max(18, Math.floor(visibleFrames));
+      }
+      isClickable(){ return this.state === "appearing" || this.state === "visible"; }
+      contains(x,y){
+        const r = this.currentRadius();
+        const dx = x-this.cx, dy = y-this.cy;
+        return dx*dx + dy*dy <= (r*0.9)*(r*0.9);
+      }
+      update(){
+        this.t += 1;
+        if(this.state === "appearing" && this.t >= this.appearDur){
+          this.state = "visible"; this.t = 0;
+        }else if(this.state === "visible" && this.t >= this.visibleDur){
+          this.state = "disappearing"; this.t = 0;
+        }else if(this.state === "disappearing" && this.t >= this.disappearDur){
+          this.state = "hidden"; this.t = 0;
+        }
+      }
+      hit(){
+        if(this.isClickable() && !this.wasHit){
+          this.wasHit = true;
+          this.state = "disappearing"; this.t = 0;
+          return true;
+        }
+        return false;
+      }
+      currentRadius(){
+        if(this.state === "appearing"){
+          const k = this.t / this.appearDur;
+          return Math.floor(this.baseR * (0.2 + 0.8*k));
+        }else if(this.state === "visible"){
+          const pulse = 0.04 * Math.sin(this.t * 0.35);
+          return Math.floor(this.baseR * (1.0 + pulse));
+        }else if(this.state === "disappearing"){
+          const k = 1.0 - (this.t / this.disappearDur);
+          return Math.floor(this.baseR * (0.2 + 0.8*k));
+        }else{
+          return Math.floor(this.baseR * 0.2);
+        }
+      }
+      draw(ctx){
+        // hole
+        const shadowR = Math.floor(this.baseR*1.15);
+        ctx.fillStyle = HOLE;
+        ctx.beginPath();
+        ctx.arc(this.cx, this.cy, shadowR, 0, TAU);
+        ctx.fill();
+
+        if(this.state !== "hidden"){
+          const r = this.currentRadius();
+          // shadow
+          ctx.fillStyle = MOLE_SHADOW;
+          ctx.beginPath();
+          ctx.arc(this.cx, this.cy+3, r, 0, TAU);
+          ctx.fill();
+
+          // body
+          ctx.fillStyle = MOLE;
+          ctx.beginPath();
+          ctx.arc(this.cx, this.cy, r, 0, TAU);
+          ctx.fill();
+
+          // eyes
+          const eyeR = Math.max(2, (r/8)|0);
+          ctx.fillStyle = "#1e1e1e";
+          ctx.beginPath(); ctx.arc(this.cx - (r/3)|0, this.cy - (r/5)|0, eyeR, 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.arc(this.cx + (r/3)|0, this.cy - (r/5)|0, eyeR, 0, TAU); ctx.fill();
+
+          // nose
+          const noseR = Math.max(2, (r/6)|0);
+          ctx.fillStyle = "#ffaaaa";
+          ctx.beginPath(); ctx.arc(this.cx, this.cy, noseR, 0, TAU); ctx.fill();
+        }
+      }
+    }
+
+    // ====== 게임 클래스 ======
+    class Game {
+      constructor(){
+        this.state = STATE_MENU;
+        this.timeLimit = 30.0; // seconds
+        this.highScore = Number(localStorage.getItem("wam_high_score") || 0);
+        this.reset();
+      }
+      reset(){
+        const marginX = 80, marginY = 160;
+        const gapX = Math.floor((W - marginX*2)/2);
+        const gapY = Math.floor((H - marginY - 120)/2);
+        const centers = [];
+        for(let gy=0; gy<3; gy++){
+          for(let gx=0; gx<3; gx++){
+            let cx = marginX + gx*gapX;
+            let cy = marginY + gy*gapY;
+            centers.push([cx+40, cy+40]);
+          }
+        }
+        this.moles = centers.map(([x,y])=> new Mole(x,y));
+        this.particles = [];
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.elapsed = 0;
+        this.spawnTimer = 0;
+        this.baseVisibleFrames = 50;
+        this.visibleFrames = this.baseVisibleFrames;
+        this.spawnInterval = 0.9; // seconds
+      }
+      addParticles(x,y,color,n=18){
+        for(let i=0;i<n;i++) this.particles.push(new Particle(x,y,color));
+      }
+      updateDifficulty(){
+        const progress = Math.min(1.0, this.elapsed / this.timeLimit);
+        this.visibleFrames = Math.max(18, Math.floor(this.baseVisibleFrames - 22*progress));
+        this.spawnInterval = Math.max(0.35, 0.9 - 0.5*progress);
+      }
+      spawnLogic(){
+        const hidden = this.moles.filter(m=> m.state==="hidden");
+        if(hidden.length>0){
+          const idx = (Math.random()*hidden.length)|0;
+          hidden[idx].spawn(this.visibleFrames);
+        }
+      }
+    }
+
+    // ====== 입력 관리 ======
+    let mouse = {x:0, y:0, pressed:false, justPressed:false};
+    canvas.addEventListener('mousemove', (e)=>{
+      const rect = canvas.getBoundingClientRect();
+      const sx = rect.width / canvas.width;
+      const sy = rect.height / canvas.height;
+      mouse.x = (e.clientX - rect.left) / sx;
+      mouse.y = (e.clientY - rect.top) / sy;
+    });
+    canvas.addEventListener('mousedown', ()=>{
+      mouse.pressed = true;
+      mouse.justPressed = true;
+    });
+    window.addEventListener('mouseup', ()=>{ mouse.pressed = false; });
+
+    // 키 입력
+    let keyDown = {};
+    window.addEventListener('keydown', (e)=>{
+      keyDown[e.code] = true;
+      if(e.code === 'Space' && game.state === STATE_MENU){
+        game.reset();
+        game.state = STATE_PLAY;
+      } else if(e.code === 'KeyR' && game.state === STATE_GAMEOVER){
+        game.reset();
+        game.state = STATE_PLAY;
+      }
+    });
+    window.addEventListener('keyup', (e)=>{ keyDown[e.code] = false; });
+
+    // ====== 게임 루프 ======
+    const game = new Game();
+    let last = performance.now();
+
+    function update(dt){
+      if(game.state === STATE_PLAY){
+        game.elapsed += dt;
+        game.spawnTimer += dt;
+        game.updateDifficulty();
+
+        if(game.spawnTimer >= game.spawnInterval){
+          game.spawnTimer = 0;
+          game.spawnLogic();
+        }
+
+        for(const m of game.moles) m.update();
+
+        // 파티클 업데이트 및 수명 필터
+        const nextParticles = [];
+        for(const p of game.particles){
+          p.update();
+          if(p.life>0) nextParticles.push(p);
+        }
+        game.particles = nextParticles;
+
+        // 클릭 처리
+        if(mouse.justPressed){
+          let hitAny = false;
+          for(const m of game.moles){
+            if(m.contains(mouse.x, mouse.y) && m.hit()){
+              hitAny = true;
+              game.score += 10 + game.combo*2;
+              game.combo += 1;
+              if(game.combo > game.maxCombo) game.maxCombo = game.combo;
+              game.addParticles(mouse.x, mouse.y, ACCENT, 20);
+            }
+          }
+          if(!hitAny){
+            game.combo = 0;
+            game.score = Math.max(0, game.score - 5);
+          }
+        }
+
+        // 타이머 종료 -> 게임오버
+        if(game.elapsed >= game.timeLimit){
+          game.state = STATE_GAMEOVER;
+          if(game.score > game.highScore){
+            game.highScore = game.score;
+            localStorage.setItem("wam_high_score", String(game.highScore));
+          }
+        }
+      }
+
+      // 프레임 당 1회만 처리되도록 리셋
+      mouse.justPressed = false;
+    }
+
+    function draw(){
+      // 배경
+      ctx.fillStyle = BG;
+      ctx.fillRect(0,0,W,H);
+
+      if(game.state === STATE_MENU){
+        drawTextCenter("두더지 잡기", 64, WHITE, W/2, H/2-80);
+        drawTextCenter("스페이스바를 눌러 시작", 32, WHITE, W/2, H/2+40);
+        drawTextCenter(`최대 점수: ${game.highScore}`, 24, HUD, W/2, H/2+90);
+      }
+      else if(game.state === STATE_PLAY){
+        // 두더지 & 파티클
+        for(const m of game.moles) m.draw(ctx);
+        for(const p of game.particles) p.draw(ctx);
+
+        // HUD
+        drawTextCenter(`점수: ${game.score}`, 32, WHITE, 100, 40);
+        drawTextCenter(`콤보: ${game.combo}`, 32, WHITE, 300, 40);
+        const remain = Math.max(0, Math.floor(game.timeLimit - game.elapsed));
+        drawTextCenter(`남은 시간: ${remain}`, 32, WHITE, 520, 40);
+      }
+      else if(game.state === STATE_GAMEOVER){
+        drawTextCenter("게임 오버", 64, RED, W/2, H/2-60);
+        drawTextCenter(`최종 점수: ${game.score}`, 40, WHITE, W/2, H/2);
+        drawTextCenter(`최대 점수: ${game.highScore}`, 32, WHITE, W/2, H/2+50);
+        drawTextCenter("R 키를 눌러 다시 시작", 32, WHITE, W/2, H/2+120);
+      }
+    }
+
+    function loop(now){
+      const dt = (now - last)/1000;
+      last = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // 안티앨리어싱 품질 약간 향상(텍스트 또렷함)
+    ctx.imageSmoothingEnabled = true;
+  </script>
+</body>
+</html>
