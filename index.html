@@ -3,394 +3,339 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>두더지 잡기 (HTML5)</title>
+  <title>두더지 잡기 (HTML5 + Leaderboard)</title>
   <style>
     :root{
-      --bg:#121621;
-      --hole:#1e2332;
-      --mole:#d25f5f;
-      --mole-shadow:#783737;
-      --white:#ffffff;
-      --red:#e66e6e;
-      --hud:#eaeaf0;
-      --accent:#ffd974;
+      --bg:#121621; --hole:#1e2332; --mole:#d25f5f; --mole-shadow:#783737;
+      --white:#ffffff; --red:#e66e6e; --hud:#eaeaf0; --accent:#ffd974;
+      --glass: rgba(255,255,255,.06); --ink: rgba(0,0,0,.35);
     }
-    html,body{
-      margin:0;
-      height:100%;
-      background:linear-gradient(180deg,#0f1320 0%, #121621 60%, #0f1320 100%);
-      color:var(--hud);
-      font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
-    }
-    .wrap{
-      min-height:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:24px;
-      box-sizing:border-box;
-    }
-    canvas{
-      width: min(640px, 92vw);
-      height: auto;
-      aspect-ratio: 640/720;
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.05);
-      background: var(--bg);
-      display:block;
-    }
-    .hint{
-      position:fixed;
-      bottom:14px;
-      left:50%;
-      transform:translateX(-50%);
-      font-size:12px;
-      opacity:.75;
-      user-select:none;
-      text-align:center;
-      line-height:1.5;
-    }
-    a{ color:#9ad0ff; text-decoration:none; }
-    a:hover{ text-decoration:underline; }
+    html,body{ margin:0; height:100%; background:linear-gradient(180deg,#0f1320 0%, #121621 60%, #0f1320 100%); color:var(--hud);
+      font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif; }
+    .wrap{ min-height:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; gap:24px; flex-wrap:wrap;}
+    canvas{ width:min(640px,92vw); height:auto; aspect-ratio:640/720; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.05); background:var(--bg); display:block;}
+    .panel{ width:min(420px,90vw); background:var(--glass); border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:16px 16px 8px; box-shadow:0 12px 30px var(--ink);}
+    .panel h2{ margin:0 0 12px; font-weight:700; font-size:20px;}
+    .board{ width:100%; border-collapse:collapse; font-size:14px; }
+    .board th,.board td{ padding:8px; border-bottom:1px solid rgba(255,255,255,.08); text-align:left;}
+    .board th{ font-weight:600; color:#bcd3ff; }
+    .muted{ opacity:.8; font-size:12px; margin-top:6px;}
+    .hint{ position:fixed; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; opacity:.75; user-select:none; text-align:center; line-height:1.5;}
+    .toast{ position:fixed; top:12px; left:50%; transform:translateX(-50%); background:#1e2538; border:1px solid rgba(255,255,255,.08); padding:10px 14px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.35); display:none;}
+    .overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); }
+    .dialog{ width:min(420px,92vw); background:#192033; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.55);}
+    .dialog h3{ margin:0 0 12px; font-size:18px;}
+    .dialog p{ margin:8px 0 12px; font-size:14px; opacity:.9;}
+    .row{ display:flex; gap:10px;}
+    input[type="text"]{ flex:1; background:#0f1526; border:1px solid rgba(255,255,255,.15); color:#eef3ff; padding:10px 12px; border-radius:10px; outline:none; }
+    button{ background:#273150; color:#eaf1ff; border:1px solid rgba(255,255,255,.15); padding:10px 14px; border-radius:10px; cursor:pointer;}
+    button:hover{ filter:brightness(1.05); }
+    .danger{ background:#5a2630; border-color:#8a3948; }
+    a{ color:#9ad0ff; text-decoration:none; } a:hover{ text-decoration:underline; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <canvas id="game" width="640" height="720"></canvas>
+
+    <!-- 리더보드 패널 -->
+    <div class="panel">
+      <h2>🏆 리더보드 (Top 10)</h2>
+      <table class="board" id="board">
+        <thead><tr><th>#</th><th>닉네임</th><th>점수</th><th>최대 콤보</th><th>날짜</th></tr></thead>
+        <tbody id="board-body"><tr><td colspan="5">불러오는 중…</td></tr></tbody>
+      </table>
+      <div class="muted">게임 오버 후 Top 10에 들면 닉네임을 입력해 저장할 수 있어.</div>
+    </div>
   </div>
-  <div class="hint">
-    스페이스바 시작 · 마우스로 두더지를 클릭 · 게임오버에서 R로 재시작
+
+  <div class="hint">스페이스바 시작 · 마우스로 두더지를 클릭 · 게임오버에서 R로 재시작</div>
+  <div class="toast" id="toast"></div>
+
+  <!-- 닉네임 입력 오버레이 -->
+  <div class="overlay" id="nameOverlay" role="dialog" aria-modal="true">
+    <div class="dialog">
+      <h3>축하해! Top 10 진입 🎉</h3>
+      <p>리더보드에 표시할 닉네임을 입력해줘. (2~12자, 특수문자 제한)</p>
+      <div class="row">
+        <input type="text" id="nickname" placeholder="닉네임" maxlength="12" />
+        <button id="submitName">저장</button>
+        <button class="danger" id="cancelName">취소</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    // ====== 설정 ======
+    // ===== 서버 엔드포인트 설정 =====
+    const API_BASE = "http://localhost:3000"; // 필요시 서버 주소로 변경
+
+    // ====== 유틸/상수 ======
     const W = 640, H = 720;
-    const BG = "#121621";
-    const HOLE = "#1e2332";
-    const MOLE = "#d25f5f";
-    const MOLE_SHADOW = "#783737";
-    const WHITE = "#ffffff";
-    const RED = "#e66e6e";
-    const HUD = "#eaeaf0";
-    const ACCENT = "#ffd974";
-
+    const BG = "#121621", HOLE = "#1e2332", MOLE = "#d25f5f", MOLE_SHADOW = "#783737", WHITE = "#ffffff", RED = "#e66e6e", HUD = "#eaeaf0", ACCENT = "#ffd974";
     const STATE_MENU = 0, STATE_PLAY = 1, STATE_GAMEOVER = 2;
-
-    // ====== 유틸 ======
+    const TAU = Math.PI * 2;
+    const font = (px=28)=>`${px}px "Malgun Gothic","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial,sans-serif`;
     const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
     const rand = (a,b)=>Math.random()*(b-a)+a;
-    const TAU = Math.PI*2;
 
-    // ====== 캔버스/컨텍스트 ======
+    // ====== 캔버스 ======
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-
-    // ====== 폰트 ======
-    const font = (px=28)=>`${px}px "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif`;
+    ctx.imageSmoothingEnabled = true;
 
     function drawTextCenter(text, size, color, cx, cy){
       ctx.font = font(size);
       ctx.fillStyle = color;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(text, cx, cy);
     }
 
     // ====== 파티클 ======
-    class Particle {
+    class Particle{
       constructor(x,y,color){
-        const ang = rand(0, TAU);
-        const spd = rand(2.0, 6.0);
-        this.x = x; this.y = y;
-        this.vx = Math.cos(ang)*spd;
-        this.vy = Math.sin(ang)*spd;
-        this.life = Math.floor(rand(15, 28));
-        this.color = color;
-        this.size = Math.floor(rand(2,4));
+        const ang = rand(0,TAU), spd = rand(2,6);
+        this.x=x; this.y=y; this.vx=Math.cos(ang)*spd; this.vy=Math.sin(ang)*spd;
+        this.life = (rand(15,28)|0); this.color=color; this.size=(rand(2,4)|0);
       }
-      update(){
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.96;
-        this.vy *= 0.96;
-        this.life -= 1;
-      }
-      draw(ctx){
-        if(this.life <= 0) return;
-        const r = Math.max(1, Math.floor(this.size * this.life/28));
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x|0, this.y|0, r, 0, TAU);
-        ctx.fill();
-      }
+      update(){ this.x+=this.vx; this.y+=this.vy; this.vx*=0.96; this.vy*=0.96; this.life--; }
+      draw(c){ if(this.life<=0) return; const r=Math.max(1,(this.size*this.life/28)|0); c.fillStyle=this.color; c.beginPath(); c.arc(this.x|0,this.y|0,r,0,TAU); c.fill(); }
     }
 
     // ====== 두더지 ======
-    class Mole {
-      constructor(cx, cy){
-        this.cx = cx; this.cy = cy;
-        this.baseR = 36;
-        this.state = "hidden";
-        this.t = 0;
-        this.visibleDur = 45;
-        this.appearDur = 12;
-        this.disappearDur = 10;
-        this.wasHit = false;
-      }
-      spawn(visibleFrames){
-        this.state = "appearing";
-        this.t = 0;
-        this.wasHit = false;
-        this.visibleDur = Math.max(18, Math.floor(visibleFrames));
-      }
-      isClickable(){ return this.state === "appearing" || this.state === "visible"; }
-      contains(x,y){
-        const r = this.currentRadius();
-        const dx = x-this.cx, dy = y-this.cy;
-        return dx*dx + dy*dy <= (r*0.9)*(r*0.9);
-      }
+    class Mole{
+      constructor(cx,cy){ this.cx=cx; this.cy=cy; this.baseR=36; this.state="hidden"; this.t=0; this.visibleDur=45; this.appearDur=12; this.disappearDur=10; this.wasHit=false; }
+      spawn(vis){ this.state="appearing"; this.t=0; this.wasHit=false; this.visibleDur=Math.max(18,vis|0); }
+      isClickable(){ return this.state==="appearing" || this.state==="visible"; }
+      contains(x,y){ const r=this.currentRadius(), dx=x-this.cx, dy=y-this.cy; return dx*dx+dy*dy <= (r*0.9)*(r*0.9); }
       update(){
-        this.t += 1;
-        if(this.state === "appearing" && this.t >= this.appearDur){
-          this.state = "visible"; this.t = 0;
-        }else if(this.state === "visible" && this.t >= this.visibleDur){
-          this.state = "disappearing"; this.t = 0;
-        }else if(this.state === "disappearing" && this.t >= this.disappearDur){
-          this.state = "hidden"; this.t = 0;
-        }
+        this.t++;
+        if(this.state==="appearing" && this.t>=this.appearDur){ this.state="visible"; this.t=0; }
+        else if(this.state==="visible" && this.t>=this.visibleDur){ this.state="disappearing"; this.t=0; }
+        else if(this.state==="disappearing" && this.t>=this.disappearDur){ this.state="hidden"; this.t=0; }
       }
-      hit(){
-        if(this.isClickable() && !this.wasHit){
-          this.wasHit = true;
-          this.state = "disappearing"; this.t = 0;
-          return true;
-        }
-        return false;
-      }
+      hit(){ if(this.isClickable() && !this.wasHit){ this.wasHit=true; this.state="disappearing"; this.t=0; return true; } return false; }
       currentRadius(){
-        if(this.state === "appearing"){
-          const k = this.t / this.appearDur;
-          return Math.floor(this.baseR * (0.2 + 0.8*k));
-        }else if(this.state === "visible"){
-          const pulse = 0.04 * Math.sin(this.t * 0.35);
-          return Math.floor(this.baseR * (1.0 + pulse));
-        }else if(this.state === "disappearing"){
-          const k = 1.0 - (this.t / this.disappearDur);
-          return Math.floor(this.baseR * (0.2 + 0.8*k));
-        }else{
-          return Math.floor(this.baseR * 0.2);
-        }
+        if(this.state==="appearing"){ const k=this.t/this.appearDur; return (this.baseR*(0.2+0.8*k))|0; }
+        if(this.state==="visible"){ const pulse=0.04*Math.sin(this.t*0.35); return (this.baseR*(1.0+pulse))|0; }
+        if(this.state==="disappearing"){ const k=1-(this.t/this.disappearDur); return (this.baseR*(0.2+0.8*k))|0; }
+        return (this.baseR*0.2)|0;
       }
-      draw(ctx){
-        // hole
-        const shadowR = Math.floor(this.baseR*1.15);
-        ctx.fillStyle = HOLE;
-        ctx.beginPath();
-        ctx.arc(this.cx, this.cy, shadowR, 0, TAU);
-        ctx.fill();
-
-        if(this.state !== "hidden"){
-          const r = this.currentRadius();
-          // shadow
-          ctx.fillStyle = MOLE_SHADOW;
-          ctx.beginPath();
-          ctx.arc(this.cx, this.cy+3, r, 0, TAU);
-          ctx.fill();
-
-          // body
-          ctx.fillStyle = MOLE;
-          ctx.beginPath();
-          ctx.arc(this.cx, this.cy, r, 0, TAU);
-          ctx.fill();
-
-          // eyes
-          const eyeR = Math.max(2, (r/8)|0);
-          ctx.fillStyle = "#1e1e1e";
-          ctx.beginPath(); ctx.arc(this.cx - (r/3)|0, this.cy - (r/5)|0, eyeR, 0, TAU); ctx.fill();
-          ctx.beginPath(); ctx.arc(this.cx + (r/3)|0, this.cy - (r/5)|0, eyeR, 0, TAU); ctx.fill();
-
-          // nose
-          const noseR = Math.max(2, (r/6)|0);
-          ctx.fillStyle = "#ffaaaa";
-          ctx.beginPath(); ctx.arc(this.cx, this.cy, noseR, 0, TAU); ctx.fill();
+      draw(c){
+        const shadowR=(this.baseR*1.15)|0;
+        c.fillStyle = HOLE; c.beginPath(); c.arc(this.cx,this.cy,shadowR,0,TAU); c.fill();
+        if(this.state!=="hidden"){
+          const r=this.currentRadius();
+          c.fillStyle=MOLE_SHADOW; c.beginPath(); c.arc(this.cx,this.cy+3,r,0,TAU); c.fill();
+          c.fillStyle=MOLE; c.beginPath(); c.arc(this.cx,this.cy,r,0,TAU); c.fill();
+          const eyeR=Math.max(2,(r/8)|0); c.fillStyle="#1e1e1e";
+          c.beginPath(); c.arc(this.cx-(r/3)|0,this.cy-(r/5)|0,eyeR,0,TAU); c.fill();
+          c.beginPath(); c.arc(this.cx+(r/3)|0,this.cy-(r/5)|0,eyeR,0,TAU); c.fill();
+          const noseR=Math.max(2,(r/6)|0); c.fillStyle="#ffaaaa";
+          c.beginPath(); c.arc(this.cx,this.cy,noseR,0,TAU); c.fill();
         }
       }
     }
 
-    // ====== 게임 클래스 ======
-    class Game {
-      constructor(){
-        this.state = STATE_MENU;
-        this.timeLimit = 30.0; // seconds
-        this.highScore = Number(localStorage.getItem("wam_high_score") || 0);
-        this.reset();
-      }
+    // ====== 게임 ======
+    class Game{
+      constructor(){ this.state=STATE_MENU; this.timeLimit=30; this.highScore=Number(localStorage.getItem("wam_high_score")||0); this.reset(); }
       reset(){
-        const marginX = 80, marginY = 160;
-        const gapX = Math.floor((W - marginX*2)/2);
-        const gapY = Math.floor((H - marginY - 120)/2);
-        const centers = [];
-        for(let gy=0; gy<3; gy++){
-          for(let gx=0; gx<3; gx++){
-            let cx = marginX + gx*gapX;
-            let cy = marginY + gy*gapY;
-            centers.push([cx+40, cy+40]);
-          }
-        }
-        this.moles = centers.map(([x,y])=> new Mole(x,y));
-        this.particles = [];
-        this.score = 0;
-        this.combo = 0;
-        this.maxCombo = 0;
-        this.elapsed = 0;
-        this.spawnTimer = 0;
-        this.baseVisibleFrames = 50;
-        this.visibleFrames = this.baseVisibleFrames;
-        this.spawnInterval = 0.9; // seconds
+        const marginX=80, marginY=160;
+        const gapX=((W-marginX*2)/2)|0, gapY=((H-marginY-120)/2)|0;
+        const centers=[];
+        for(let gy=0;gy<3;gy++) for(let gx=0;gx<3;gx++){ centers.push([marginX+gx*gapX+40, marginY+gy*gapY+40]); }
+        this.moles=centers.map(([x,y])=>new Mole(x,y));
+        this.particles=[]; this.score=0; this.combo=0; this.maxCombo=0;
+        this.elapsed=0; this.spawnTimer=0; this.baseVisibleFrames=50; this.visibleFrames=this.baseVisibleFrames; this.spawnInterval=0.9;
       }
-      addParticles(x,y,color,n=18){
-        for(let i=0;i<n;i++) this.particles.push(new Particle(x,y,color));
-      }
-      updateDifficulty(){
-        const progress = Math.min(1.0, this.elapsed / this.timeLimit);
-        this.visibleFrames = Math.max(18, Math.floor(this.baseVisibleFrames - 22*progress));
-        this.spawnInterval = Math.max(0.35, 0.9 - 0.5*progress);
-      }
-      spawnLogic(){
-        const hidden = this.moles.filter(m=> m.state==="hidden");
-        if(hidden.length>0){
-          const idx = (Math.random()*hidden.length)|0;
-          hidden[idx].spawn(this.visibleFrames);
-        }
-      }
+      addParticles(x,y,color,n=18){ for(let i=0;i<n;i++) this.particles.push(new Particle(x,y,color)); }
+      updateDifficulty(){ const p=Math.min(1,this.elapsed/this.timeLimit); this.visibleFrames=Math.max(18,(this.baseVisibleFrames-22*p)|0); this.spawnInterval=Math.max(0.35, 0.9-0.5*p); }
+      spawnLogic(){ const hidden=this.moles.filter(m=>m.state==="hidden"); if(hidden.length){ hidden[(Math.random()*hidden.length)|0].spawn(this.visibleFrames); } }
     }
 
-    // ====== 입력 관리 ======
-    let mouse = {x:0, y:0, pressed:false, justPressed:false};
-    canvas.addEventListener('mousemove', (e)=>{
-      const rect = canvas.getBoundingClientRect();
-      const sx = rect.width / canvas.width;
-      const sy = rect.height / canvas.height;
-      mouse.x = (e.clientX - rect.left) / sx;
-      mouse.y = (e.clientY - rect.top) / sy;
+    // ====== 입력 ======
+    let mouse={x:0, y:0, pressed:false, justPressed:false};
+    canvas.addEventListener('mousemove', e=>{
+      const rect=canvas.getBoundingClientRect(); const sx=rect.width/canvas.width, sy=rect.height/canvas.height;
+      mouse.x=(e.clientX-rect.left)/sx; mouse.y=(e.clientY-rect.top)/sy;
     });
-    canvas.addEventListener('mousedown', ()=>{
-      mouse.pressed = true;
-      mouse.justPressed = true;
-    });
-    window.addEventListener('mouseup', ()=>{ mouse.pressed = false; });
+    canvas.addEventListener('mousedown', ()=>{ mouse.pressed=true; mouse.justPressed=true; });
+    window.addEventListener('mouseup', ()=>{ mouse.pressed=false; });
 
-    // 키 입력
-    let keyDown = {};
-    window.addEventListener('keydown', (e)=>{
-      keyDown[e.code] = true;
-      if(e.code === 'Space' && game.state === STATE_MENU){
-        game.reset();
-        game.state = STATE_PLAY;
-      } else if(e.code === 'KeyR' && game.state === STATE_GAMEOVER){
-        game.reset();
-        game.state = STATE_PLAY;
+    let keyDown={};
+    // >>> 힌트 메시지 전역
+    let top10HintMessage = "";
+
+    window.addEventListener('keydown', e=>{
+      keyDown[e.code]=true;
+      if(e.code==='Space' && game.state===STATE_MENU){
+        top10HintMessage = "";        // 시작 시 힌트 초기화
+        game.reset(); game.state=STATE_PLAY;
+      } else if(e.code==='KeyR' && game.state===STATE_GAMEOVER){
+        top10HintMessage = "";        // 재시작 시 힌트 초기화
+        game.reset(); game.state=STATE_PLAY;
       }
     });
-    window.addEventListener('keyup', (e)=>{ keyDown[e.code] = false; });
+    window.addEventListener('keyup', e=>{ keyDown[e.code]=false; });
 
-    // ====== 게임 루프 ======
-    const game = new Game();
-    let last = performance.now();
-
+    // ====== 루프 ======
+    const game=new Game(); let last=performance.now();
     function update(dt){
-      if(game.state === STATE_PLAY){
-        game.elapsed += dt;
-        game.spawnTimer += dt;
-        game.updateDifficulty();
-
-        if(game.spawnTimer >= game.spawnInterval){
-          game.spawnTimer = 0;
-          game.spawnLogic();
-        }
-
+      if(game.state===STATE_PLAY){
+        game.elapsed+=dt; game.spawnTimer+=dt; game.updateDifficulty();
+        if(game.spawnTimer>=game.spawnInterval){ game.spawnTimer=0; game.spawnLogic(); }
         for(const m of game.moles) m.update();
+        const next=[]; for(const p of game.particles){ p.update(); if(p.life>0) next.push(p); } game.particles=next;
 
-        // 파티클 업데이트 및 수명 필터
-        const nextParticles = [];
-        for(const p of game.particles){
-          p.update();
-          if(p.life>0) nextParticles.push(p);
-        }
-        game.particles = nextParticles;
-
-        // 클릭 처리
         if(mouse.justPressed){
-          let hitAny = false;
+          let hit=false;
           for(const m of game.moles){
-            if(m.contains(mouse.x, mouse.y) && m.hit()){
-              hitAny = true;
-              game.score += 10 + game.combo*2;
-              game.combo += 1;
-              if(game.combo > game.maxCombo) game.maxCombo = game.combo;
-              game.addParticles(mouse.x, mouse.y, ACCENT, 20);
+            if(m.contains(mouse.x,mouse.y) && m.hit()){
+              hit=true; game.score += 10 + game.combo*2; game.combo += 1; game.maxCombo = Math.max(game.maxCombo, game.combo);
+              game.addParticles(mouse.x,mouse.y,ACCENT,20);
             }
           }
-          if(!hitAny){
-            game.combo = 0;
-            game.score = Math.max(0, game.score - 5);
-          }
+          if(!hit){ game.combo=0; game.score=Math.max(0, game.score-5); }
         }
 
-        // 타이머 종료 -> 게임오버
-        if(game.elapsed >= game.timeLimit){
-          game.state = STATE_GAMEOVER;
-          if(game.score > game.highScore){
-            game.highScore = game.score;
-            localStorage.setItem("wam_high_score", String(game.highScore));
-          }
+        if(game.elapsed>=game.timeLimit){
+          game.state=STATE_GAMEOVER;
+          if(game.score>game.highScore){ game.highScore=game.score; localStorage.setItem("wam_high_score", String(game.highScore)); }
+          // 서버에 점수 전송 → Top10 여부 확인 → 닉네임 수집 or 힌트 메시지
+          probeAndMaybeAskName(game.score, game.maxCombo);
         }
       }
-
-      // 프레임 당 1회만 처리되도록 리셋
-      mouse.justPressed = false;
+      mouse.justPressed=false;
     }
 
     function draw(){
-      // 배경
-      ctx.fillStyle = BG;
-      ctx.fillRect(0,0,W,H);
-
-      if(game.state === STATE_MENU){
+      ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+      if(game.state===STATE_MENU){
         drawTextCenter("두더지 잡기", 64, WHITE, W/2, H/2-80);
         drawTextCenter("스페이스바를 눌러 시작", 32, WHITE, W/2, H/2+40);
         drawTextCenter(`최대 점수: ${game.highScore}`, 24, HUD, W/2, H/2+90);
-      }
-      else if(game.state === STATE_PLAY){
-        // 두더지 & 파티클
+      }else if(game.state===STATE_PLAY){
         for(const m of game.moles) m.draw(ctx);
         for(const p of game.particles) p.draw(ctx);
-
-        // HUD
         drawTextCenter(`점수: ${game.score}`, 32, WHITE, 100, 40);
         drawTextCenter(`콤보: ${game.combo}`, 32, WHITE, 300, 40);
         const remain = Math.max(0, Math.floor(game.timeLimit - game.elapsed));
         drawTextCenter(`남은 시간: ${remain}`, 32, WHITE, 520, 40);
-      }
-      else if(game.state === STATE_GAMEOVER){
+      }else if(game.state===STATE_GAMEOVER){
         drawTextCenter("게임 오버", 64, RED, W/2, H/2-60);
         drawTextCenter(`최종 점수: ${game.score}`, 40, WHITE, W/2, H/2);
         drawTextCenter(`최대 점수: ${game.highScore}`, 32, WHITE, W/2, H/2+50);
         drawTextCenter("R 키를 눌러 다시 시작", 32, WHITE, W/2, H/2+120);
+
+        // >>> Top10 실패 안내 문구가 있으면 추가로 표시
+        if (top10HintMessage) {
+          drawTextCenter(top10HintMessage, 20, "#eaeaf0", W/2, H/2+160);
+        }
       }
     }
 
     function loop(now){
-      const dt = (now - last)/1000;
-      last = now;
-      update(dt);
-      draw();
-      requestAnimationFrame(loop);
+      const dt=(now-last)/1000; last=now; update(dt); draw(); requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
 
-    // 안티앨리어싱 품질 약간 향상(텍스트 또렷함)
-    ctx.imageSmoothingEnabled = true;
+    // ====== 리더보드 UI ======
+    const boardBody = document.getElementById('board-body');
+    async function refreshLeaderboard(){
+      try{
+        const res = await fetch(`${API_BASE}/api/leaderboard`);
+        const data = await res.json();
+        renderBoard(data);
+      }catch(e){
+        boardBody.innerHTML = `<tr><td colspan="5">리더보드를 불러오지 못했어.</td></tr>`;
+      }
+    }
+    function renderBoard(rows){
+      if(!rows || rows.length===0){
+        boardBody.innerHTML = `<tr><td colspan="5">아직 등록된 점수가 없어.</td></tr>`;
+        return;
+      }
+      boardBody.innerHTML = rows.map((r,i)=>{
+        const when = new Date(r.created_at).toLocaleDateString();
+        const safeName = escapeHTML(r.name);
+        return `<tr><td>${i+1}</td><td>${safeName}</td><td>${r.score}</td><td>${r.maxCombo||0}</td><td>${when}</td></tr>`;
+      }).join("");
+    }
+    function escapeHTML(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+    // ====== 점수 제출/프로브 ======
+    const nameOverlay = document.getElementById('nameOverlay');
+    const nicknameInput = document.getElementById('nickname');
+    const submitNameBtn = document.getElementById('submitName');
+    const cancelNameBtn = document.getElementById('cancelName');
+    let pendingScore = null;
+
+    function showToast(msg){
+      const t=document.getElementById('toast');
+      t.textContent=msg; t.style.display='block';
+      setTimeout(()=>{ t.style.display='none'; }, 1800);
+    }
+
+    async function probeAndMaybeAskName(score, maxCombo){
+      try{
+        const res = await fetch(`${API_BASE}/api/score/probe`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ score, maxCombo })
+        });
+        const data = await res.json();
+        if(data.qualifies){
+          top10HintMessage = ""; // Top10 진입 시 힌트 초기화
+          pendingScore = { score, maxCombo };
+          nicknameInput.value = "";
+          nameOverlay.style.display = "flex";
+          nicknameInput.focus();
+        }else{
+          // >>> Top10 실패 시 원하는 문구 세팅 + 토스트
+          top10HintMessage = "랭킹위로 올라갈 닉네임을 입력하셍ㅕ";
+          showToast(top10HintMessage);
+        }
+        refreshLeaderboard();
+      }catch(e){
+        showToast('점수 제출 실패');
+      }
+    }
+
+    function validateNickname(name){
+      // 2~12자, 한글/영문/숫자/공백/언더스코어/하이픈
+      return /^[\p{L}0-9 _-]{2,12}$/u.test(name);
+    }
+
+    submitNameBtn.addEventListener('click', async ()=>{
+      const name = nicknameInput.value.trim();
+      if(!validateNickname(name)){
+        showToast('닉네임 형식이 맞지 않아 (2~12자, 특수문자 제한)');
+        return;
+      }
+      if(!pendingScore){ nameOverlay.style.display='none'; return; }
+      try{
+        const res = await fetch(`${API_BASE}/api/score/submit`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name, score: pendingScore.score, maxCombo: pendingScore.maxCombo })
+        });
+        const data = await res.json();
+        nameOverlay.style.display='none';
+        showToast('리더보드에 저장 완료!');
+        pendingScore = null;
+        renderBoard(data.leaderboard || []);
+      }catch(e){
+        showToast('저장 중 문제가 발생했어');
+      }
+    });
+    cancelNameBtn.addEventListener('click', ()=>{
+      pendingScore = null;
+      nameOverlay.style.display = 'none';
+      showToast('저장을 취소했어');
+    });
+
+    // 첫 로드시 리더보드 가져오기
+    refreshLeaderboard();
   </script>
 </body>
 </html>
