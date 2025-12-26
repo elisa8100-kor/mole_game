@@ -43,21 +43,21 @@
       <h2>🏆 리더보드 (Top 10)</h2>
       <table class="board" id="board">
         <thead><tr><th>#</th><th>닉네임</th><th>점수</th><th>최대 콤보</th><th>날짜</th></tr></thead>
-        <tbody id="board-body"><tr><td colspan="5">불러오는 중…</td></tr></tbody>
+        <tbody id="board-body"><tr><td colspan="5">불러오는 중입니다다…</td></t다…</td></t
       </table>
-      <div class="muted">게임 오버 후 Top 10에 들면 닉네임을 입력해 저장할 수 있어.</div>
+      <div class="muted">게임 오버 후 Top 10에 들면 닉네임을 입력해 저장할 수 있습니다.</div>
     </div>
   </div>
 
-  <div class="hint">스페이스바 시작 · 마우스로 두더지를 클릭 · 게임오버에서 R로 재시작</div>
+  <div class="hint">스페이스바 시작 · 마우스로 두더지를 클릭 · 게임오버에서 R로 재시작을 할 수 있습니다.</div>
   <div class="toast" id="toast"></div>
 
   <!-- 닉네임 입력 오버레이 -->
   <div class="overlay" id="nameOverlay" role="dialog" aria-modal="true">
     <div class="dialog">
-      <h3>축하해! Top 10 진입 🎉</h3>
-      <p>리더보드에 표시할 닉네임을 입력해줘. (2~12자, 특수문자 제한)</p>
-      <div class="row">
+      <h3>축하합니다! Top 10에 진입하셨습니다! 🎉</h3>
+      <p>리더보드에 표시할 닉네임을 입력해주세요. (2~12자, 특수문자 제한)</p>
+      <div class할 닉네임을 입력해 주세요>
         <input type="text" id="nickname" placeholder="닉네임" maxlength="12" />
         <button id="submitName">저장</button>
         <button class="danger" id="cancelName">취소</button>
@@ -211,8 +211,8 @@
     function draw(){
       ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
       if(game.state===STATE_MENU){
-        drawTextCenter("두더지 잡기", 64, WHITE, W/2, H/2-80);
-        drawTextCenter("스페이스바를 눌러 시작", 32, WHITE, W/2, H/2+40);
+        drawTextCenter("두더지 잡기 게임", 64, WHITE, W/2, H/2-80);
+        drawTextCenter("스페이스바를 눌러 시작하세요", 32, WHITE, W/2, H/2+40);
         drawTextCenter(`최대 점수: ${game.highScore}`, 24, HUD, W/2, H/2+90);
       }else if(game.state===STATE_PLAY){
         for(const m of game.moles) m.draw(ctx);
@@ -225,7 +225,7 @@
         drawTextCenter("게임 오버", 64, RED, W/2, H/2-60);
         drawTextCenter(`최종 점수: ${game.score}`, 40, WHITE, W/2, H/2);
         drawTextCenter(`최대 점수: ${game.highScore}`, 32, WHITE, W/2, H/2+50);
-        drawTextCenter("R 키를 눌러 다시 시작", 32, WHITE, W/2, H/2+120);
+        drawTextCenter("R 키를 눌러 다시 시작하세요", 32, WHITE, W/2, H/2+120);
 
         // >>> Top10 실패 안내 문구가 있으면 추가로 표시
         if (top10HintMessage) {
@@ -247,13 +247,12 @@
         const data = await res.json();
         renderBoard(data);
       }catch(e){
-        boardBody.innerHTML = `<tr><td colspan="5">리더보드를 불러오지 못했어.</td></tr>`;
+        boardBody.innerHTML = `<tr><td colspan="5">리더보드를 불러오지 못했습니다.</td></tr>`;
       }
     }
     function renderBoard(rows){
       if(!rows || rows.length===0){
-        boardBody.innerHTML = `<tr><td colspan="5">아직 등록된 점수가 없어.</td></tr>`;
-        return;
+        boardBody.innerHTML = `<tr><td colspan="5">아직 등록된 점수가 없습니다.</td></tr>`;   return;
       }
       boardBody.innerHTML = rows.map((r,i)=>{
         const when = new Date(r.created_at).toLocaleDateString();
@@ -292,12 +291,12 @@
           nicknameInput.focus();
         }else{
           // >>> Top10 실패 시 원하는 문구 세팅 + 토스트
-          top10HintMessage = "랭킹위로 올라갈 닉네임을 입력하셍ㅕ";
+          top10HintMessage = "랭킹위로 올라갈 닉네임을 입력하세요";
           showToast(top10HintMessage);
         }
         refreshLeaderboard();
       }catch(e){
-        showToast('점수 제출 실패');
+        showToast('점수 제출을 실패하였습니다.');
       }
     }
 
@@ -309,7 +308,7 @@
     submitNameBtn.addEventListener('click', async ()=>{
       const name = nicknameInput.value.trim();
       if(!validateNickname(name)){
-        showToast('닉네임 형식이 맞지 않아 (2~12자, 특수문자 제한)');
+        showToast('닉네임 형식이 맞지 않습니다. (2~12자, 특수문자 제한)');
         return;
       }
       if(!pendingScore){ nameOverlay.style.display='none'; return; }
@@ -321,17 +320,17 @@
         });
         const data = await res.json();
         nameOverlay.style.display='none';
-        showToast('리더보드에 저장 완료!');
+        showToast('리더보드에 저장 완료하였습니다.');
         pendingScore = null;
         renderBoard(data.leaderboard || []);
       }catch(e){
-        showToast('저장 중 문제가 발생했어');
+        showToast('저장 중 문제가 발생했습니다.');
       }
     });
     cancelNameBtn.addEventListener('click', ()=>{
       pendingScore = null;
       nameOverlay.style.display = 'none';
-      showToast('저장을 취소했어');
+      showToast('저장을 취소했습니다.');
     });
 
     // 첫 로드시 리더보드 가져오기
