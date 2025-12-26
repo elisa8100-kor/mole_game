@@ -67,7 +67,10 @@
 
   <script>
     // ===== 서버 엔드포인트 설정 =====
-    const API_BASE = "http://localhost:3000"; // 필요시 서버 주소로 변경
+    const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:3000"
+    : "https://halam.cloud";
 
     // ====== 유틸/상수 ======
     const W = 640, H = 720;
