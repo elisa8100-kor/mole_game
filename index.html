@@ -95,7 +95,6 @@
     button:disabled{ opacity:.55; cursor:not-allowed; }
     .danger{ background:#5a2630; border-color:#8a3948; }
 
-    /* HUD 버튼 (캔버스 위) */
     .hudbar{
       position:fixed;
       top:12px; right:12px;
@@ -109,13 +108,11 @@
       background: rgba(39,49,80,.85);
       backdrop-filter: blur(6px);
     }
-
-    a{ color:#9ad0ff; text-decoration:none; } a:hover{ text-decoration:underline; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <canvas id="game" width="640" height="720" aria-label="두더지 잡기 게임 캔버스" role="img"></canvas>
+    <canvas id="game" width="640" height="720"></canvas>
 
     <div class="panel">
       <h2>🏆 리더보드 (Top 10)</h2>
@@ -127,7 +124,7 @@
           <tr><td colspan="5">불러오는 중입니다…</td></tr>
         </tbody>
       </table>
-      <div class="muted">게임 오버 후 Top 10에 들면 닉네임을 입력해 저장할 수 있습니다.</div>
+      <div class="muted">랭킹 등록 최소 점수: <b>150점</b> (게임 오버 후 Top 10에 들면 닉네임을 입력해 저장할 수 있습니다.)</div>
     </div>
   </div>
 
@@ -137,12 +134,9 @@
     <button id="btnRestart">재시작</button>
   </div>
 
-  <div class="hint" id="hint">
-    Space 시작 · (모바일) 화면 터치로 타격 · P 일시정지 · R 재시작
-  </div>
+  <div class="hint" id="hint">Space 시작 · (모바일) 화면 터치로 타격 · P 일시정지 · R 재시작</div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <!-- Top10 닉네임 -->
   <div class="overlay" id="nameOverlay" role="dialog" aria-modal="true">
     <div class="dialog">
       <h3>Top 10에 진입했습니다</h3>
@@ -156,12 +150,15 @@
   </div>
 
   <script>
+    // ===== 정책 =====
+    const MIN_RANK_SCORE = 150;
+
     // ===== 서버 엔드포인트 =====
     const API_BASE = (location.hostname === "localhost")
       ? "http://localhost:3000"
       : "https://halam.cloud";
 
-    // ===== 상수/유틸 =====
+    // ===== 유틸/상수 =====
     const W = 640, H = 720;
     const TAU = Math.PI * 2;
     const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
@@ -185,12 +182,11 @@
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d', { alpha:false });
 
-    let DPR = 1;
     function setupCanvas(){
-      DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-      canvas.width = Math.floor(W * DPR);
-      canvas.height = Math.floor(H * DPR);
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = true;
     }
     setupCanvas();
@@ -223,7 +219,7 @@
       updatePointer(e);
       pointer.justPressed = true;
 
-      // 메뉴에서 터치로 바로 시작
+      // 메뉴에서 터치로 시작
       if(game.state === STATE_MENU){
         topHint = "";
         game.reset();
@@ -240,7 +236,7 @@
       showToast._t = setTimeout(()=>{ toastEl.style.display='none'; }, 1800);
     }
 
-    // ===== 파티클(풀링) =====
+    // ===== 파티클 풀링 =====
     class Particle {
       constructor(){ this.active=false; }
       init(x,y,color){
@@ -283,7 +279,7 @@
       draw(c){ for(const p of this.pool) p.draw(c); }
     }
 
-    // ===== 플로팅 점수 =====
+    // ===== 플로팅 텍스트 =====
     class FloatText {
       constructor(){ this.active=false; }
       init(x,y,text,color){
@@ -311,7 +307,7 @@
     }
 
     class FloatTextPool {
-      constructor(cap=40){
+      constructor(cap=42){
         this.pool = Array.from({length:cap}, ()=>new FloatText());
         this.cursor = 0;
       }
@@ -324,7 +320,7 @@
       draw(c){ for(const f of this.pool) f.draw(c); }
     }
 
-    // ===== 두더지(시간 기반) =====
+    // ===== 두더지 =====
     class Mole {
       constructor(cx,cy){
         this.cx=cx; this.cy=cy;
@@ -358,7 +354,7 @@
       }
       contains(x,y,isTouch){
         const r=this.currentRadius();
-        const bonus = isTouch ? 1.15 : 1.0; // 터치 판정 보정
+        const bonus = isTouch ? 1.15 : 1.0;
         const rr = (r*0.9*bonus);
         const dx=x-this.cx, dy=y-this.cy;
         return dx*dx+dy*dy <= rr*rr;
@@ -404,7 +400,7 @@
       }
     }
 
-    // ===== 정적 배경(구멍) 미리 그리기 =====
+    // ===== 정적 배경(구멍) =====
     const bgCanvas = document.createElement('canvas');
     bgCanvas.width = W; bgCanvas.height = H;
     const bgCtx = bgCanvas.getContext('2d');
@@ -412,8 +408,6 @@
     function renderStaticBackground(holeCenters){
       bgCtx.fillStyle = COLORS.BG;
       bgCtx.fillRect(0,0,W,H);
-
-      // 구멍만 미리 렌더
       bgCtx.fillStyle = COLORS.HOLE;
       for(const [x,y] of holeCenters){
         const shadowR = 36*1.15;
@@ -428,10 +422,8 @@
       constructor(){
         this.state = STATE_MENU;
         this.timeLimit = 30;
-
         this.highScore = Number(localStorage.getItem("wam_high_score") || 0);
 
-        // 화면 흔들림(미스 피드백)
         this.shakeT = 0;
         this.shakePower = 0;
 
@@ -456,13 +448,11 @@
         this.score=0; this.combo=0; this.maxCombo=0;
         this.elapsed=0; this.spawnTimer=0;
 
-        // 난이도(초)
         this.baseVisible = 0.80;
         this.visible = this.baseVisible;
         this.spawnInterval = 0.95;
 
-        // 적응 구간
-        this.warmup = 4.0; // first 4 seconds easier
+        this.warmup = 4.0;
 
         this.particles = new ParticlePool(240);
         this.floatText = new FloatTextPool(42);
@@ -470,14 +460,11 @@
 
       updateDifficulty(){
         const p = clamp(this.elapsed/this.timeLimit, 0, 1);
-
-        // 워밍업 동안 난이도 완화
         const warm = clamp(this.elapsed/this.warmup, 0, 1);
 
         const targetVisible = Math.max(0.28, this.baseVisible - 0.38*p);
         const targetInterval = Math.max(0.35, 0.95 - 0.60*p);
 
-        // warm이 1에 가까워질수록 목표 난이도에 수렴
         this.visible = this.baseVisible*(1-warm) + targetVisible*warm;
         this.spawnInterval = 1.05*(1-warm) + targetInterval*warm;
       }
@@ -490,7 +477,6 @@
       }
 
       missFeedback(){
-        // 아주 짧은 화면 흔들림
         this.shakeT = 0.12;
         this.shakePower = 6;
       }
@@ -514,7 +500,7 @@
     let last = performance.now();
     let topHint = "";
 
-    // ===== 키 입력 =====
+    // ===== 키입력 =====
     window.addEventListener('keydown', (e)=>{
       if(e.code==='Space' && game.state===STATE_MENU){
         topHint="";
@@ -529,25 +515,22 @@
     });
 
     // ===== HUD 버튼 =====
-    const btnStart = document.getElementById('btnStart');
-    const btnPause = document.getElementById('btnPause');
-    const btnRestart = document.getElementById('btnRestart');
-    btnStart.addEventListener('click', ()=>{
+    document.getElementById('btnStart').addEventListener('click', ()=>{
       if(game.state===STATE_MENU || game.state===STATE_GAMEOVER){
         topHint="";
         game.reset(); game.state=STATE_PLAY;
       }
     });
-    btnPause.addEventListener('click', ()=>{
+    document.getElementById('btnPause').addEventListener('click', ()=>{
       if(game.state===STATE_PLAY) game.state=STATE_PAUSE;
       else if(game.state===STATE_PAUSE) game.state=STATE_PLAY;
     });
-    btnRestart.addEventListener('click', ()=>{
+    document.getElementById('btnRestart').addEventListener('click', ()=>{
       topHint="";
       game.reset(); game.state=STATE_PLAY;
     });
 
-    // ===== 메인 업데이트 =====
+    // ===== 업데이트 =====
     function update(dt){
       if(game.state===STATE_PLAY){
         game.elapsed += dt;
@@ -564,8 +547,6 @@
 
         if(pointer.justPressed){
           let hit=false;
-
-          // 1회 입력당 1마리만
           for(const m of game.moles){
             if(m.contains(pointer.x, pointer.y, pointer.isTouch) && m.hit()){
               hit=true;
@@ -586,15 +567,10 @@
             game.score = Math.max(0, game.score-5);
             game.missFeedback();
             game.floatText.pop(pointer.x, pointer.y-10, `MISS`, COLORS.RED);
-
-            // 콤보가 컸다면 안내(과도한 스팸 방지용으로 조건)
-            if(prevCombo >= 8){
-              showToast(`콤보 ${prevCombo}에서 끊겼습니다.`);
-            }
+            if(prevCombo >= 8) showToast(`콤보 ${prevCombo}에서 끊겼습니다.`);
           }
         }
 
-        // 이펙트 업데이트
         game.particles.update(dt);
         game.floatText.update(dt);
         game.updateShake(dt);
@@ -610,7 +586,6 @@
           probeAndMaybeAskName(game.score, game.maxCombo);
         }
       } else if(game.state===STATE_PAUSE){
-        // 일시정지 중에도 흔들림 잔상만 정리
         game.updateShake(dt);
       }
 
@@ -619,29 +594,24 @@
 
     // ===== 렌더 =====
     function draw(){
-      // 배경(구멍 포함) 먼저
       ctx.drawImage(bgCanvas, 0, 0);
 
-      // 흔들림 적용(게임 플레이/오버에서만)
       const shake = (game.state===STATE_PLAY) ? game.getShakeOffset() : {x:0,y:0};
       ctx.save();
       ctx.translate(shake.x, shake.y);
 
-      // 두더지
       for(const m of game.moles) m.drawMole(ctx);
-
-      // 파티클/텍스트
       game.particles.draw(ctx);
       game.floatText.draw(ctx);
 
       ctx.restore();
 
-      // HUD
       if(game.state===STATE_MENU){
         drawTextCenter("두더지 잡기 게임", 64, COLORS.WHITE, W/2, H/2-90);
         drawTextCenter("Space 또는 시작 버튼으로 시작", 28, COLORS.WHITE, W/2, H/2-20);
         drawTextCenter("모바일은 화면을 터치해도 시작됩니다", 22, COLORS.HUD, W/2, H/2+20);
-        drawTextCenter(`최대 점수: ${game.highScore}`, 24, COLORS.HUD, W/2, H/2+78);
+        drawTextCenter(`랭킹 등록 최소 점수: ${MIN_RANK_SCORE}`, 22, COLORS.HUD, W/2, H/2+58);
+        drawTextCenter(`최대 점수: ${game.highScore}`, 24, COLORS.HUD, W/2, H/2+92);
 
       } else if(game.state===STATE_PLAY || game.state===STATE_PAUSE){
         ctx.font = font(28);
@@ -650,14 +620,19 @@
         ctx.fillText(`점수: ${game.score}`, 18, 36);
         ctx.fillText(`콤보: ${game.combo}`, 18, 68);
 
+        // 랭킹 컷 간단 표시
+        ctx.font = font(18);
+        ctx.fillStyle = COLORS.HUD;
+        ctx.fillText(`랭킹 ${MIN_RANK_SCORE}+`, 18, 96);
+
         const remain = Math.max(0, Math.ceil(game.timeLimit - game.elapsed));
+        ctx.font = font(28);
+        ctx.fillStyle = COLORS.WHITE;
         ctx.textAlign="right";
         ctx.fillText(`남은 시간: ${remain}`, W-18, 36);
-        ctx.textAlign="right";
         ctx.fillText(`최대 점수: ${game.highScore}`, W-18, 68);
 
         if(game.state===STATE_PAUSE){
-          // 일시정지 오버레이 느낌
           ctx.fillStyle = "rgba(0,0,0,.35)";
           ctx.fillRect(0,0,W,H);
           drawTextCenter("일시정지", 60, COLORS.WHITE, W/2, H/2-20);
@@ -665,13 +640,15 @@
         }
 
       } else if(game.state===STATE_GAMEOVER){
-        drawTextCenter("게임 오버", 64, COLORS.RED, W/2, H/2-70);
-        drawTextCenter(`최종 점수: ${game.score}`, 40, COLORS.WHITE, W/2, H/2-5);
-        drawTextCenter(`최대 점수: ${game.highScore}`, 30, COLORS.WHITE, W/2, H/2+45);
-        drawTextCenter("R 또는 재시작 버튼으로 다시 시작", 26, COLORS.HUD, W/2, H/2+120);
+        drawTextCenter("게임 오버", 64, COLORS.RED, W/2, H/2-80);
+        drawTextCenter(`최종 점수: ${game.score}`, 40, COLORS.WHITE, W/2, H/2-10);
+        drawTextCenter(`최대 점수: ${game.highScore}`, 30, COLORS.WHITE, W/2, H/2+40);
+        drawTextCenter("R 또는 재시작 버튼으로 다시 시작", 26, COLORS.HUD, W/2, H/2+112);
+
+        drawTextCenter(`랭킹 등록 최소 점수: ${MIN_RANK_SCORE}`, 22, COLORS.HUD, W/2, H/2+154);
 
         if(topHint){
-          drawTextCenter(topHint, 20, COLORS.HUD, W/2, H/2+160);
+          drawTextCenter(topHint, 20, COLORS.HUD, W/2, H/2+186);
         }
       }
     }
@@ -685,9 +662,10 @@
     }
     requestAnimationFrame(loop);
 
-    // ====== 리더보드 ======
-    const boardBody = document.getElementById('board-body');
+    // ===== 리더보드(로컬 폴백 판정용) =====
+    let lastLeaderboard = [];
 
+    const boardBody = document.getElementById('board-body');
     function escapeHTML(s){
       return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
     }
@@ -695,11 +673,12 @@
       try{ return new Date(iso).toLocaleDateString('ko-KR'); }catch{ return "-"; }
     }
     function renderBoard(rows){
-      if(!rows || rows.length===0){
+      lastLeaderboard = Array.isArray(rows) ? rows : [];
+      if(!lastLeaderboard.length){
         boardBody.innerHTML = `<tr><td colspan="5">아직 등록된 점수가 없습니다.</td></tr>`;
         return;
       }
-      boardBody.innerHTML = rows.slice(0,10).map((r,i)=>{
+      boardBody.innerHTML = lastLeaderboard.slice(0,10).map((r,i)=>{
         const safeName = escapeHTML(r.name);
         const score = Number(r.score)||0;
         const maxCombo = Number(r.maxCombo)||0;
@@ -714,7 +693,7 @@
       }).join("");
     }
 
-    // fetch 타임아웃 + 1회 재시도
+    // ===== 네트워크 유틸 =====
     async function fetchWithTimeout(url, options={}, ms=4500){
       const ctrl = new AbortController();
       const t = setTimeout(()=>ctrl.abort(), ms);
@@ -725,7 +704,6 @@
       }
     }
     async function fetchJsonRetry(url, options={}, ms=4500){
-      // 1회 재시도
       for(let attempt=0; attempt<2; attempt++){
         try{
           const res = await fetchWithTimeout(url, options, ms);
@@ -739,14 +717,12 @@
     }
 
     const LB_CACHE_KEY = "wam_leaderboard_cache_v1";
-
     async function refreshLeaderboard(){
       try{
         const data = await fetchJsonRetry(`${API_BASE}/api/leaderboard`);
         renderBoard(data);
         localStorage.setItem(LB_CACHE_KEY, JSON.stringify({ at:Date.now(), data }));
       }catch{
-        // 캐시가 있으면 캐시로 표시
         const cached = localStorage.getItem(LB_CACHE_KEY);
         if(cached){
           try{
@@ -756,17 +732,46 @@
             return;
           }catch{}
         }
+        renderBoard([]);
         boardBody.innerHTML = `<tr><td colspan="5">리더보드를 불러오지 못했습니다.</td></tr>`;
       }
     }
 
-    // ====== Top10 저장 ======
+    // ===== Top10 폴백 판정 =====
+    function parseBool(v){
+      if(typeof v === "boolean") return v;
+      if(typeof v === "number") return v === 1;
+      if(typeof v === "string") return v.trim().toLowerCase() === "true";
+      return false;
+    }
+
+    function localQualifies(score, maxCombo){
+      // 정책: 150점 미만은 랭킹 불가
+      if(score < MIN_RANK_SCORE) return false;
+
+      // 리더보드 10개 미만이면(정책 만족 시) 무조건 등록 시도 가능
+      if(!Array.isArray(lastLeaderboard) || lastLeaderboard.length < 10) return true;
+
+      // 10위 컷 기준(점수 → 콤보)
+      const last = lastLeaderboard[Math.min(9, lastLeaderboard.length - 1)];
+      const lastScore = Number(last?.score) || 0;
+      const lastCombo = Number(last?.maxCombo) || 0;
+
+      if(score > lastScore) return true;
+      if(score < lastScore) return false;
+
+      return (Number(maxCombo)||0) > lastCombo;
+    }
+
+    // ===== 랭킹 저장/프로브 =====
     const nameOverlay = document.getElementById('nameOverlay');
     const nicknameInput = document.getElementById('nickname');
     const submitNameBtn = document.getElementById('submitName');
     const cancelNameBtn = document.getElementById('cancelName');
+
     let pendingScore = null;
     let submitting = false;
+    let topHint = "";
 
     function normalizeNickname(name){
       return name.trim().replace(/\s+/g, " ");
@@ -775,7 +780,29 @@
       return /^[\p{L}0-9 _-]{2,12}$/u.test(name);
     }
 
+    function openNameOverlay(score, maxCombo){
+      topHint = "";
+      pendingScore = { score, maxCombo };
+      nicknameInput.value = "";
+      nameOverlay.style.display = "flex";
+      nicknameInput.focus();
+    }
+
     async function probeAndMaybeAskName(score, maxCombo){
+      // ✅ 1차 게이트: 최소 150점
+      if(score < MIN_RANK_SCORE){
+        const need = MIN_RANK_SCORE - score;
+        topHint = `랭킹 등록은 최소 ${MIN_RANK_SCORE}점부터 가능합니다. (${need}점 더 필요)`;
+        showToast(topHint);
+        return;
+      }
+
+      // 리더보드가 비어 있어도 정책 만족이면 입력 가능(서버가 불안정해도 UX 유지)
+      if(Array.isArray(lastLeaderboard) && lastLeaderboard.length === 0){
+        openNameOverlay(score, maxCombo);
+        return;
+      }
+
       try{
         const data = await fetchJsonRetry(`${API_BASE}/api/score/probe`, {
           method:'POST',
@@ -783,14 +810,13 @@
           body: JSON.stringify({ score, maxCombo })
         });
 
-        if(data.qualifies){
-          topHint = "";
-          pendingScore = { score, maxCombo };
-          nicknameInput.value = "";
-          nameOverlay.style.display = "flex";
-          nicknameInput.focus();
+        const qualifiesValue = (data?.qualifies ?? data?.qualified ?? data?.qualify);
+        const qualifies = parseBool(qualifiesValue);
+
+        if(qualifies){
+          openNameOverlay(score, maxCombo);
         }else{
-          const cutoff = Number(data.cutoffScore);
+          const cutoff = Number(data?.cutoffScore);
           if(Number.isFinite(cutoff) && cutoff > score){
             topHint = `Top 10까지 ${cutoff - score}점 부족합니다.`;
           }else{
@@ -801,7 +827,14 @@
 
         refreshLeaderboard();
       }catch{
-        showToast("점수 처리 중 네트워크 문제가 발생했습니다.");
+        // 서버가 불안정하면 로컬 기준으로 폴백
+        if(localQualifies(score, maxCombo)){
+          showToast("서버 응답이 불안정합니다. 우선 닉네임 입력을 진행합니다.");
+          openNameOverlay(score, maxCombo);
+        }else{
+          topHint = "서버 응답이 불안정합니다. 다시 시도해보세요.";
+          showToast(topHint);
+        }
       }
     }
 
@@ -815,6 +848,14 @@
       }
       if(!pendingScore){
         nameOverlay.style.display='none';
+        return;
+      }
+
+      // ✅ 최종 안전장치(프론트)
+      if(pendingScore.score < MIN_RANK_SCORE){
+        showToast(`랭킹 등록은 최소 ${MIN_RANK_SCORE}점부터 가능합니다.`);
+        nameOverlay.style.display='none';
+        pendingScore = null;
         return;
       }
 
@@ -854,17 +895,17 @@
       if(e.key==="Escape") cancelNameBtn.click();
     });
 
-    // ===== 초기 로드 =====
+    // ===== 첫 로드 =====
     refreshLeaderboard();
 
-    // ===== 힌트 문구 업데이트(상태 반영) =====
+    // ===== 힌트 문구 =====
     const hintEl = document.getElementById('hint');
     setInterval(()=>{
-      if(game.state === STATE_PLAY) hintEl.textContent = "타격: 클릭/터치 · P 일시정지 · R 재시작";
+      if(game.state === STATE_PLAY) hintEl.textContent = `타격: 클릭/터치 · P 일시정지 · R 재시작 · 랭킹 ${MIN_RANK_SCORE}+`;
       else if(game.state === STATE_PAUSE) hintEl.textContent = "일시정지 중 · P 또는 일시정지 버튼으로 재개";
-      else if(game.state === STATE_GAMEOVER) hintEl.textContent = "게임 오버 · R 또는 재시작 버튼으로 다시 시작";
-      else hintEl.textContent = "Space 시작 · 시작 버튼 클릭 가능 · 모바일은 화면 터치로 시작/타격";
+      else if(game.state === STATE_GAMEOVER) hintEl.textContent = `게임 오버 · R 또는 재시작 버튼으로 다시 시작 · 랭킹 ${MIN_RANK_SCORE}+`;
+      else hintEl.textContent = `Space 시작 · 시작 버튼 클릭 가능 · 모바일은 화면 터치로 시작/타격 · 랭킹 ${MIN_RANK_SCORE}+`;
     }, 300);
   </script>
 </body>
-  </html>
+</html>
