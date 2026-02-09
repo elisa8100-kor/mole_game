@@ -1,0 +1,177 @@
+:root{
+  --bg:#0b0f14;
+  --panel:#101826;
+  --line:rgba(255,255,255,.08);
+  --text:#e8eef7;
+  --muted:#a1b2c9;
+  --accent:#7aa2ff;
+  --mint:#7ef0c6;
+  --danger:#ff6b6b;
+
+  --hole:#172030;
+  --mole:#7b4a2b;
+  --mole-shadow:#3a2316;
+
+  --shadow: 0 14px 44px rgba(0,0,0,.35);
+  --r:16px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(122,162,255,.14), transparent 55%),
+    radial-gradient(900px 700px at 90% 20%, rgba(126,240,198,.10), transparent 55%),
+    var(--bg);
+}
+
+.app{max-width:1100px;margin:0 auto;padding:18px 16px 28px}
+
+.panel{
+  background: rgba(16,24,38,.60);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+.top{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:14px 18px;
+  padding:16px;
+}
+
+.brand{display:flex;gap:12px;align-items:center;min-width:260px}
+.logo{
+  width:44px;height:44px;border-radius:12px;
+  display:grid;place-items:center;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+  font-size:22px;
+}
+.title h1{margin:0;font-size:22px;letter-spacing:.2px}
+.sub{margin:3px 0 0;color:var(--muted);font-size:12.5px}
+
+.hud{display:flex;flex-wrap:wrap;gap:10px}
+.card{
+  min-width:105px;
+  padding:10px 12px;
+  border-radius:14px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+}
+.card .k{display:block;color:var(--muted);font-size:11px;margin-bottom:4px}
+.card .v{display:flex;gap:6px;align-items:baseline;font-size:20px;font-weight:800}
+.unit{font-size:12px;color:var(--muted);font-weight:650}
+
+.actions{display:flex;gap:10px}
+.btn{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  padding:10px 14px;
+  border-radius:14px;
+  cursor:pointer;
+  font-weight:750;
+  transition: transform .06s ease, background .2s ease, border-color .2s ease;
+}
+.btn:active{transform: translateY(1px)}
+.btn.primary{
+  border-color: rgba(122,162,255,.35);
+  background: linear-gradient(180deg, rgba(122,162,255,.18), rgba(255,255,255,.03));
+}
+.btn.primary:disabled{opacity:.6;cursor:not-allowed}
+.btn.ghost{background:transparent}
+.btn.ghost:hover{background: rgba(255,255,255,.04)}
+
+.main{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns: 1fr 360px;
+  gap:14px;
+}
+@media(max-width:980px){ .main{grid-template-columns:1fr} }
+
+.gamePanel{padding:16px}
+#game{
+  width:100%;
+  max-width:640px;
+  aspect-ratio: 640/720;
+  display:block;
+  border-radius:14px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.08);
+}
+
+.hint{
+  margin-top:12px;
+  display:flex;align-items:center;gap:10px;
+  color:var(--muted);
+  font-size:12.5px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px dashed rgba(255,255,255,.10);
+  background: rgba(255,255,255,.02);
+}
+.dot{
+  width:8px;height:8px;border-radius:99px;
+  background: rgba(255,107,107,.75);
+  box-shadow: 0 0 0 4px rgba(255,107,107,.12);
+}
+
+.lbPanel{padding:16px}
+.lbHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lbHead h2{margin:0;font-size:15px;letter-spacing:.2px}
+
+.podium{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap:10px;
+}
+.pod{
+  background: rgba(255,255,255,.03);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:10px;
+  text-align:center;
+}
+.pod.best{
+  border-color: rgba(126,240,198,.25);
+  background: linear-gradient(180deg, rgba(126,240,198,.10), rgba(255,255,255,.03));
+}
+.medal{font-size:20px;margin-bottom:6px}
+.name{
+  font-weight:850;font-size:13px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.meta{margin-top:4px;color:var(--muted);font-size:12px;font-variant-numeric: tabular-nums}
+
+.lbList{
+  margin:12px 0 0;
+  padding-left:18px;
+  border-top:1px solid var(--line);
+}
+.lbList li{
+  padding:10px 0;
+  border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;gap:10px;
+  font-size:13px;
+}
+.lbList .who{
+  max-width:210px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:750;
+}
+.lbList .stat{
+  color:var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lbStatus{
+  margin-top:10px;
+  color:var(--muted);
+  font-size:12px;
+}
