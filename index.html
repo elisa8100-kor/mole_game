@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>두더지 잡기 & 리더보드</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    margin: 0;
+    font-family: 'Arial Black', sans-serif;
+    background: #000;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    margin: 16px 0 8px;
+    font-size: 36px;
+    text-shadow: 0 0 8px #ff0, 0 0 16px #f00;
+  }
+
+  .info {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 16px;
+    font-size: 20px;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    grid-gap: 12px;
+  }
+
+  .hole {
+    width: 100px;
+    height: 100px;
+    background: #333;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 0 8px #0ff inset, 0 0 4px #fff inset;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mole {
+    width: 80px;
+    height: 80px;
+    background: brown;
+    border-radius: 50%;
+    position: absolute;
+    bottom: -80px;
+    left: 10px;
+    transition: bottom 0.15s;
+    box-shadow: 0 0 10px #ff0;
+  }
+
+  .hole.up .mole {
+    bottom: 10px;
+  }
+
+  button {
+    margin: 8px;
+    padding: 12px 24px;
+    font-size: 18px;
+    cursor: pointer;
+    background: linear-gradient(45deg, #ff0, #f00);
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-weight: bold;
+    box-shadow: 0 0 12px #ff0, 0 0 24px #f00;
+  }
+
+  .leaderboard {
+    margin-top: 32px;
+    width: 320px;
+    background: #111;
+    border: 2px solid #ff0;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 0 16px #ff0;
+  }
+
+  .leaderboard h2 {
+    text-align: center;
+    margin-bottom: 12px;
+    color: #ff0;
+    text-shadow: 0 0 6px #f00;
+  }
+
+  .medals {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 16px;
+  }
+
+  .medal {
+    font-size: 32px;
+    text-align: center;
+    min-width: 90px;
+  }
+
+  .rank-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .rank-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-bottom: 1px solid #444;
+    font-size: 18px;
+  }
+
+  .warn {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #bbb;
+    opacity: 0.9;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>🐹 두더지 잡기</h1>
+
+<div class="info">
+  <div>점수: <span id="score">0</span></div>
+  <div>시간: <span id="time">30</span>s</div>
+</div>
+
+<div class="board" id="board">
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+</div>
+
+<div>
+  <button id="startBtn">게임 시작</button>
+</div>
+
+<div class="warn">※ 게임 중 다른 창/탭으로 나가면 기록 무효(종료) 처리됩니다.</div>
+
+<div class="leaderboard">
+  <h2>리더보드</h2>
+  <div class="medals">
+    <div class="medal" id="first">🥇</div>
+    <div class="medal" id="second">🥈</div>
+    <div class="medal" id="third">🥉</div>
+  </div>
+  <ul class="rank-list" id="rankList"></ul>
+</div>
+
+<script>
+  const holes = document.querySelectorAll('.hole');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+  const startBtn = document.getElementById('startBtn');
+
+  let score = 0;
+  let time = 30;
+  let gameTimer = null;
+  let moleTimer = null;
+  let isPlaying = false;
+  let cheated = false;
+
+  // 리더보드 데이터: 예시 없음 (빈 상태 시작)
+  const leaderboardData = [];
+
+  function randomHole() {
+    return holes[Math.floor(Math.random() * holes.length)];
+  }
+
+  function showMole() {
+    if (!isPlaying) return;
+    const hole = randomHole();
+    hole.classList.add('up');
+    setTimeout(() => hole.classList.remove('up'), 600);
+  }
+
+  holes.forEach(hole => {
+    hole.addEventListener('click', () => {
+      if (!hole.classList.contains('up') || !isPlaying) return;
+      score++;
+      scoreEl.textContent = score;
+      hole.classList.remove('up');
+    });
+  });
+
+  function startGame() {
+    // 이미 플레이 중이면 무시
+    if (isPlaying) return;
+
+    score = 0;
+    time = 30;
+    cheated = false;
+    isPlaying = true;
+
+    scoreEl.textContent = score;
+    timeEl.textContent = time;
+
+    moleTimer = setInterval(showMole, 800);
+
+    gameTimer = setInterval(() => {
+      time--;
+      timeEl.textContent = time;
+      if (time <= 0) endGame(false);
+    }, 1000);
+  }
+
+  function endGame(isCheat) {
+    if (!isPlaying) return;
+
+    isPlaying = false;
+    clearInterval(gameTimer);
+    clearInterval(moleTimer);
+    holes.forEach(h => h.classList.remove('up'));
+
+    if (isCheat) {
+      alert("🚫 기록 무효!\n게임 중 화면을 벗어나서 종료 처리되었습니다.");
+      return;
+    }
+
+    alert(`게임 종료! 점수: ${score}`);
+    updateLeaderboard(score);
+  }
+
+  function updateLeaderboard(newScore) {
+    const name = prompt("닉네임을 입력하세요", "익명");
+    if (!name) return;
+
+    leaderboardData.push({ name, score: newScore });
+    leaderboardData.sort((a, b) => b.score - a.score);
+
+    document.getElementById("first").textContent =
+      leaderboardData[0] ? `🥇 ${leaderboardData[0].name}` : "🥇";
+
+    document.getElementById("second").textContent =
+      leaderboardData[1] ? `🥈 ${leaderboardData[1].name}` : "🥈";
+
+    document.getElementById("third").textContent =
+      leaderboardData[2] ? `🥉 ${leaderboardData[2].name}` : "🥉";
+
+    const rankList = document.getElementById("rankList");
+    rankList.innerHTML = "";
+
+    for (let i = 3; i < Math.min(10, leaderboardData.length); i++) {
+      const li = document.createElement("li");
+      li.textContent = `${i + 1}. ${leaderboardData[i].name} - ${leaderboardData[i].score}`;
+      rankList.appendChild(li);
+    }
+  }
+
+  // ✅ 꼼수 방지: 탭 숨김/다른 창/폰 화면 전환 시 기록 무효 종료
+  document.addEventListener("visibilitychange", () => {
+    if (isPlaying && document.hidden) endGame(true);
+  });
+
+  window.addEventListener("blur", () => {
+    if (isPlaying) endGame(true);
+  });
+
+  // 시작 버튼
+  startBtn.addEventListener('click', startGame);
+</script>
+
+</body>
+</html>
